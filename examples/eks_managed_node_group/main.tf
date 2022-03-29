@@ -2,10 +2,18 @@ provider "aws" {
   region = local.region
 }
 
+data "aws_vpc" "existing_vpc" {
+  tags = map("Name","k8s-vpc" )
+}
+
+data "aws_subnet" "existing_subnets"{
+  tags = map("kubernetes.io/cluster/my-cluster", "shared" )
+}
+
 locals {
   name            = "ex-${replace(basename(path.cwd), "_", "-")}"
   cluster_version = "1.21"
-  region          = "eu-west-1"
+  region          = "us-west-1"
 
   tags = {
     Example    = local.name
@@ -55,8 +63,8 @@ module "eks" {
     resources        = ["secrets"]
   }]
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = data.aws_vpc.existing_vpc.id
+  subnet_ids = data.aws_subnet.existing_subnets.id
 
   # Extend cluster security group rules
   cluster_security_group_additional_rules = {
