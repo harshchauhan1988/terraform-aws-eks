@@ -9,8 +9,11 @@ data "aws_vpc" "existing_vpc" {
 data "aws_subnets" "existing_subnets"{
   tags = tomap({"kubernetes.io/cluster/my-cluster"="shared"} )
 }
-data "aws_security_group" "sg"{
-  vpc_id = data.aws_vpc.existing_vpc.id
+data "aws_security_groups" "sg"{
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing_vpc.id]
+  }
 }
 data "aws_subnets" "public_subnets"{
   tags = tomap({"kubernetes.io/role/elb"="1" } )
@@ -190,7 +193,7 @@ module "eks" {
       launch_template_description     = "Self managed node group example launch template"
 
       ebs_optimized          = true
-      vpc_security_group_ids = [data.aws_security_group.sg.id]
+      vpc_security_group_ids = [data.aws_security_groups.sg.ids[0]]
       enable_monitoring      = true
 
       block_device_mappings = {
