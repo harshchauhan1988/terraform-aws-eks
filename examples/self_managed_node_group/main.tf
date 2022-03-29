@@ -2,10 +2,23 @@ provider "aws" {
   region = local.region
 }
 
+data "aws_vpc" "existing_vpc" {
+  tags = tomap({"Name"="k8s-vpc"})
+}
+
+data "aws_subnets" "existing_subnets"{
+  tags = tomap({"kubernetes.io/cluster/my-cluster"="shared"} )
+}
+data "aws_security_group" "sg"{
+  vpc_id = data.aws_vpc.existing_vpc.id
+}
+data "aws_subnets" "public_subnets"{
+  tags = tomap({"kubernetes.io/role/elb"="1" } )
+}
 locals {
   name            = "ex-${replace(basename(path.cwd), "_", "-")}"
   cluster_version = "1.21"
-  region          = "eu-west-1"
+  region          = "us-west-1"
 
   tags = {
     Example    = local.name
@@ -43,8 +56,8 @@ module "eks" {
     resources        = ["secrets"]
   }]
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = data.aws_vpc.existing_vpc.id
+  subnet_ids = data.aws_subnets.existing_subnets.ids
 
   # Extend cluster security group rules
   cluster_security_group_additional_rules = {
@@ -151,7 +164,7 @@ module "eks" {
       name            = "complete-self-mng"
       use_name_prefix = false
 
-      subnet_ids = module.vpc.public_subnets
+      subnet_ids = data.aws_subnets.public_subnets.ids
 
       min_size     = 1
       max_size     = 7
@@ -177,7 +190,7 @@ module "eks" {
       launch_template_description     = "Self managed node group example launch template"
 
       ebs_optimized          = true
-      vpc_security_group_ids = [aws_security_group.additional.id]
+      vpc_security_group_ids = [data.aws_security_group.sg.id]
       enable_monitoring      = true
 
       block_device_mappings = {
@@ -314,7 +327,7 @@ resource "null_resource" "apply" {
 # Supporting Resources
 ################################################################################
 
-module "vpc" {
+/* module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 3.0"
 
@@ -362,7 +375,7 @@ resource "aws_security_group" "additional" {
   }
 
   tags = local.tags
-}
+} */
 
 resource "aws_kms_key" "eks" {
   description             = "EKS Secret Encryption Key"
