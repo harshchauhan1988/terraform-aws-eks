@@ -1,11 +1,18 @@
 provider "aws" {
-  region = "ap-south-1"
+  region = "us-west-1"
 }
 
 data "aws_eks_cluster" "cluster" {
   name = module.eks.cluster_id
 }
 
+data "aws_vpc" "existing_vpc" {
+  tags = map("Name","k8s-vpc" )
+}
+
+data "aws_subnet" "existing_subnets"{
+  tags = map("kubernetes.io/cluster/my-cluster", "shared" )
+}
 data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_id
 }
@@ -31,9 +38,9 @@ module "eks" {
 
   cluster_name    = "${local.cluster_name}"
   cluster_version = "1.17"
-  subnets         = module.vpc.private_subnets
+  subnets         = data.aws_subnet.existing_subnets.id
 
-  vpc_id = module.vpc.vpc_id
+  vpc_id = data.aws_vpc.existing_vpc.id
 
   node_groups = {
     first = {
