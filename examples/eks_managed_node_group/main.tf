@@ -2,14 +2,23 @@ provider "aws" {
   region = local.region
 }
 
+
 data "aws_vpc" "existing_vpc" {
-  tags = map("Name","k8s-vpc" )
+  tags = tomap({"Name"="k8s-vpc"})
 }
 
-data "aws_subnet" "existing_subnets"{
-  tags = map("kubernetes.io/cluster/my-cluster", "shared" )
+data "aws_subnets" "existing_subnets"{
+  tags = tomap({"kubernetes.io/cluster/my-cluster"="shared"} )
 }
-
+data "aws_security_groups" "sg"{
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing_vpc.id]
+  }
+}
+data "aws_subnets" "private_subnets"{
+  tags = tomap({"kubernetes.io/role/internal-elb"="1" } )
+}
 locals {
   name            = "ex-${replace(basename(path.cwd), "_", "-")}"
   cluster_version = "1.21"
@@ -30,7 +39,6 @@ data "aws_caller_identity" "current" {}
 
 module "eks" {
   source = "../.."
-
   cluster_name                    = local.name
   cluster_version                 = local.cluster_version
   cluster_endpoint_private_access = true
@@ -64,7 +72,7 @@ module "eks" {
   }]
 
   vpc_id     = data.aws_vpc.existing_vpc.id
-  subnet_ids = data.aws_subnet.existing_subnets.id
+  subnet_ids = data.aws_subnets.existing_subnets.ids
 
   # Extend cluster security group rules
   cluster_security_group_additional_rules = {
@@ -221,7 +229,7 @@ module "eks" {
       name            = "complete-eks-mng"
       use_name_prefix = true
 
-      subnet_ids = module.vpc.private_subnets
+      subnet_ids = data.aws_subnets.private_subnets.ids
 
       min_size     = 1
       max_size     = 7
@@ -405,7 +413,7 @@ resource "null_resource" "patch" {
 # Supporting Resources
 ################################################################################
 
-module "vpc" {
+/* module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 3.0"
 
@@ -442,7 +450,7 @@ module "vpc" {
   }
 
   tags = local.tags
-}
+} */
 
 module "vpc_cni_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
@@ -464,7 +472,7 @@ module "vpc_cni_irsa" {
 
 resource "aws_security_group" "additional" {
   name_prefix = "${local.name}-additional"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = data.aws_vpc.existing_vpc.id
 
   ingress {
     from_port = 22
@@ -637,7 +645,7 @@ resource "aws_key_pair" "this" {
 resource "aws_security_group" "remote_access" {
   name_prefix = "${local.name}-remote-access"
   description = "Allow remote SSH access"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = data.aws_vpc.existing_vpc.id
 
   ingress {
     description = "SSH access"
