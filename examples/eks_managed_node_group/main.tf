@@ -110,7 +110,7 @@ module "eks" {
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
     disk_size      = 50
-    instance_types = ["m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+    instance_types = ["m6i.large", "m5.large", "r5n.large", "m5zn.large"]
 
     # We are using the IRSA created below for permissions
     # However, we have to deploy with the policy attached FIRST (when creating a fresh cluster)
@@ -251,7 +251,7 @@ module "eks" {
       capacity_type        = "SPOT"
       disk_size            = 256
       force_update_version = true
-      instance_types       = ["m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+      instance_types       = ["m6i.large", "m5.large", "r5n.large", "m5zn.large"]
       labels = {
         GithubRepo = "terraform-aws-eks"
         GithubOrg  = "terraform-aws-modules"
